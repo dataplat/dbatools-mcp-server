@@ -1,7 +1,20 @@
 {
   "name": "dbatools-mcp-server",
+  "mcpName": "io.github.dataplat/dbatools-mcp-server",
   "version": "0.1.0",
   "description": "MCP server for the dbatools PowerShell module — exposes dbatools commands as MCP tools driven by comment-based help",
+  "keywords": [
+    "dbatools",
+    "mcp",
+    "sql server",
+    "powershell",
+    "database"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dataplat/dbatools-mcp-server.git"
+  },
+  "license": "MIT",
   "type": "module",
   "bin": {
     "dbatools-mcp-server": "./dist/server.js"
@@ -27,12 +40,19 @@
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
-    "extensionsToTreatAsEsm": [".ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "transform": {
-      "^.+\\.tsx?$": ["ts-jest", { "useESM": true }]
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     }
   },
   "engines": {
