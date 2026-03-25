@@ -1,0 +1,7 @@
+node_modules/
+dist/
+generated/dbatools-help.json
+*.js.map
+.env
+.env.local
+*.log

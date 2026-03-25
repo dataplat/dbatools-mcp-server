@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "dbatools": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/dist/server.js"],
+      "env": {
+        "DBATOOLS_SAFE_MODE": "true",
+        "MAX_OUTPUT_ROWS": "100",
+        "COMMAND_TIMEOUT_SECONDS": "60"
+      }
+    }
+  }
+}

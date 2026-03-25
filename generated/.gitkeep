@@ -1,0 +1,3 @@
+# This directory is created by scripts/refresh-help.ps1
+# dbatools-help.json is generated locally and is intentionally gitignored.
+# Run: npm run refresh-help
