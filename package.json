@@ -16,6 +16,11 @@
   },
   "license": "MIT",
   "type": "module",
+  "files": [
+    "dist",
+    "generated/.gitkeep",
+    "scripts/refresh-help.ps1"
+  ],
   "bin": {
     "dbatools-mcp-server": "./dist/server.js"
   },
