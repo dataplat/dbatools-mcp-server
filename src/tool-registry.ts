@@ -64,7 +64,7 @@ export function buildPowerShellScript(
   }
 
   const preambleLines: string[] = [];
-  const paramParts: string[] = [];
+  const splatEntries: string[] = [];
 
   for (const [key, value] of Object.entries(args)) {
     // Validate parameter key (letters, digits only)
@@ -81,30 +81,34 @@ export function buildPowerShellScript(
         `$__securePass = ConvertTo-SecureString '${escapedPass}' -AsPlainText -Force`,
         `$__cred = New-Object System.Management.Automation.PSCredential('${escapedUser}', $__securePass)`
       );
-      paramParts.push(`-SqlCredential $__cred`);
+      splatEntries.push(`    SqlCredential = $__cred`);
       continue;
     }
 
     if (typeof value === "boolean") {
-      if (value) paramParts.push(`-${key}`);
+      if (value) splatEntries.push(`    ${key} = $true`);
     } else if (typeof value === "number") {
       if (!Number.isFinite(value)) throw new Error(`Non-finite number for -${key}`);
-      paramParts.push(`-${key} ${value}`);
+      splatEntries.push(`    ${key} = ${value}`);
     } else {
       // Sanitize string: escape embedded single-quotes
       const escaped = String(value).replace(/'/g, "''");
-      paramParts.push(`-${key} '${escaped}'`);
+      splatEntries.push(`    ${key} = '${escaped}'`);
     }
   }
 
-  const invocation = [commandName, ...paramParts].join(" ");
+  const splatBlock =
+    splatEntries.length > 0
+      ? [`$params = @{`, ...splatEntries, `}`].join("\n")
+      : `$params = @{}`;
 
   return [
     `Set-StrictMode -Off`,
     `$ErrorActionPreference = 'Stop'`,
     `Import-Module dbatools -ErrorAction Stop`,
     ...preambleLines,
-    `$result = ${invocation} | Select-Object -First ${maxRows}`,
+    splatBlock,
+    `$result = ${commandName} @params | Select-Object -First ${maxRows}`,
     `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
     `$result | ConvertTo-Json -Depth 5 -Compress`,
   ].join("\n");
