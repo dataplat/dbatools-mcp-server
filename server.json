@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dataplat/dbatools-mcp-server",
+  "description": "MCP server for dbatools — exposes SQL Server management commands as MCP tools",
+  "repository": {
+    "url": "https://github.com/dataplat/dbatools-mcp-server",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "dbatools-mcp-server",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DBATOOLS_SAFE_MODE",
+          "description": "Set to 'false' to allow write/destructive dbatools operations. Defaults to true (read-only safe mode).",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "MAX_OUTPUT_ROWS",
+          "description": "Maximum number of rows returned per command. Defaults to 100. Allowed range: 1–10000.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
+        },
+        {
+          "name": "COMMAND_TIMEOUT_SECONDS",
+          "description": "Timeout in seconds for each dbatools command. Defaults to 60. Allowed range: 5–3600.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
+        },
+        {
+          "name": "PWSH_EXE",
+          "description": "Path to the PowerShell executable. Defaults to 'pwsh'.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
