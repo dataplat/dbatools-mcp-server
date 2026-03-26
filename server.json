@@ -7,6 +7,12 @@
     "source": "github"
   },
   "version": "0.2.0",
+  "icons": [
+    {
+      "src": "https://dbatools.io/thor.png",
+      "mimeType": "image/png"
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",

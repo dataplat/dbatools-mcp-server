@@ -1,5 +1,8 @@
 # dbatools-mcp-server
 
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_MCP_Server-0098FF?style=for-the-badge&logo=visualstudiocode)](https://insiders.vscode.dev/redirect/mcp/install?name=dbatools&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22dbatools-mcp-server%40latest%22%5D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_MCP_Server-24bfa5?style=for-the-badge&logo=visualstudiocode)](https://insiders.vscode.dev/redirect/mcp/install?name=dbatools&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22dbatools-mcp-server%40latest%22%5D%7D&quality=insiders)
+
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the [dbatools](https://dbatools.io) PowerShell module.
 
 Exposes dbatools commands as MCP tools so AI assistants (GitHub Copilot, Claude, etc.) can discover, explain, and execute dbatools commands directly — with all metadata sourced from dbatools' own **comment-based help**.
