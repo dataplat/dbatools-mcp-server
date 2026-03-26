@@ -1,7 +1,7 @@
 {
   "name": "dbatools-mcp-server",
   "mcpName": "io.github.dataplat/dbatools-mcp-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for dbatools — exposes SQL Server management commands as MCP tools",
   "keywords": [
     "dbatools",

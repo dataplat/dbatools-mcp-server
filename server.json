@@ -6,12 +6,18 @@
     "url": "https://github.com/dataplat/dbatools-mcp-server",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "icons": [
+    {
+      "src": "https://dbatools.io/thor.png",
+      "mimeType": "image/png"
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",
       "identifier": "dbatools-mcp-server",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
