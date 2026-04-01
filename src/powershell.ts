@@ -44,6 +44,11 @@ export function runPowerShell(
   config: ServerConfig
 ): Promise<PowerShellResult> {
   return new Promise((resolve, reject) => {
+    // Encode the script as Base64 UTF-16LE and use -EncodedCommand so that
+    // no part of the script (including any user-supplied parameter values
+    // embedded in it) is ever parsed as a command-line argument by PowerShell.
+    // This eliminates the command-injection risk present with -Command.
+    const encodedCommand = Buffer.from(script, "utf16le").toString("base64");
     const pwsh = spawn(
       config.powershellExe,
       [
@@ -52,8 +57,8 @@ export function runPowerShell(
         "-NoLogo",
         "-ExecutionPolicy",
         "Bypass",
-        "-Command",
-        script,
+        "-EncodedCommand",
+        encodedCommand,
       ],
       { shell: false }
     );
