@@ -208,7 +208,7 @@ server.tool(
 // ---------------------------------------------------------------------------
 server.tool(
   "invoke_dbatools_command",
-  "Execute a dbatools command via PowerShell and return structured JSON output. Non-readonly commands require confirm:true when safe mode is enabled.",
+  "Execute a dbatools command via PowerShell and return structured JSON output.\n\nSAFETY: For any destructive or change command (Remove, Drop, Disable, Reset, etc.), always explain the consequences to the user and ask for explicit confirmation before running. Only proceed with confirm:true if the user has clearly confirmed their intent. Respect DBATOOLS_SAFE_MODE: never bypass safety checks. For any command that modifies or deletes data, double-check with the user before proceeding. Show the exact command and output for transparency. Non-readonly commands require confirm:true when safe mode is enabled.",
   {
     commandName: z
       .string()
