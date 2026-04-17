@@ -101,14 +101,10 @@ $failures  = 0
 $helpDir      = Join-Path $module.ModuleBase 'en-us'
 $helpXmlFiles = @(Get-ChildItem $helpDir -Filter '*.xml' -ErrorAction SilentlyContinue)
 
+# Try parsing MAML XML first
+$helpLookup = @{}
 if ($helpXmlFiles.Count -gt 0) {
-    # ------------------------------------------------------------------
-    # FAST PATH: Parse MAML XML directly (seconds, not minutes)
-    # ------------------------------------------------------------------
-    Write-Information "Found $($helpXmlFiles.Count) MAML help file(s) — using fast XML parser..."
-
-    # Build a lookup of help entries keyed by command name
-    $helpLookup = @{}
+    Write-Information "Found $($helpXmlFiles.Count) MAML help file(s) — trying fast XML parser..."
     foreach ($helpFile in $helpXmlFiles) {
         try {
             [xml]$xml = Get-Content $helpFile.FullName -Raw
@@ -122,6 +118,15 @@ if ($helpXmlFiles.Count -gt 0) {
         }
     }
     Write-Information "Parsed $($helpLookup.Count) help entries from MAML XML"
+    if ($helpLookup.Count -eq 0) {
+        Write-Warning "MAML XML files contained no usable help entries — falling back to parallel Get-Help."
+    }
+}
+
+if ($helpLookup.Count -gt 0) {
+    # ------------------------------------------------------------------
+    # FAST PATH: Use parsed MAML data (seconds, not minutes)
+    # ------------------------------------------------------------------
 
     foreach ($cmd in $commands) {
         try {
@@ -260,12 +265,11 @@ if ($helpXmlFiles.Count -gt 0) {
 
                 $links = @()
                 if ($help.relatedLinks -and $help.relatedLinks.navigationLink) {
-                    $links = @($help.relatedLinks.navigationLink | ForEach-Object {
-                        [ordered]@{
-                            text = if ($_.linkText) { $_.linkText } else { '' }
-                            uri  = if ($_.uri) { $_.uri } else { '' }
-                        }
-                    })
+                    $links = @(
+                        $help.relatedLinks.navigationLink |
+                        ForEach-Object { if ($_.uri) { $_.uri } elseif ($_.linkText) { $_.linkText } } |
+                        Where-Object { $_ -and $_ -ne '' }
+                    )
                 }
 
                 $synopsis    = if ($help.Synopsis) { $help.Synopsis.Trim() } else { '' }
@@ -287,6 +291,7 @@ if ($helpXmlFiles.Count -gt 0) {
                 Write-Information "  Filled: $($entry.name)"
             }
             catch {
+                $failures++
                 Write-Warning "  Failed to fill $($entry.name) via Get-Help: $_"
             }
         }
@@ -295,7 +300,7 @@ if ($helpXmlFiles.Count -gt 0) {
     # ------------------------------------------------------------------
     # SLOW PATH: Get-Help with parallel processing (fallback)
     # ------------------------------------------------------------------
-    Write-Information "No MAML XML help files found — falling back to Get-Help (slower)..."
+    Write-Information "Falling back to Get-Help with parallel processing (slower)..."
 
     $commandNames  = @($commands.Name)
     if ($commandNames.Count -eq 0) {
@@ -311,10 +316,11 @@ if ($helpXmlFiles.Count -gt 0) {
 
         Write-Information "Processing $total commands in $($chunks.Count) parallel batches (ThrottleLimit=$ThrottleLimit)..."
 
+        $modulePath = $module.Path
         $allResults = $chunks | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
         $chunkCmds = $_
 
-        Import-Module dbatools -ErrorAction Stop
+        Import-Module $using:modulePath -ErrorAction Stop
 
         $RoVerbs = $using:ReadonlyVerbs
         $DVerbs  = $using:DestructiveVerbs
