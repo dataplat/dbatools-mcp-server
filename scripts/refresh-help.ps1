@@ -224,17 +224,17 @@ if ($helpXmlFiles.Count -gt 0) {
     if ($commandNames.Count -eq 0) {
         Write-Warning "No commands to index."
     } else {
-    $actualWorkers = [Math]::Min($ThrottleLimit, $commandNames.Count)
-    $chunkSize     = [Math]::Ceiling($commandNames.Count / $actualWorkers)
-    $chunks        = [System.Collections.Generic.List[string[]]]::new()
-    for ($i = 0; $i -lt $commandNames.Count; $i += $chunkSize) {
-        $end = [Math]::Min($i + $chunkSize - 1, $commandNames.Count - 1)
-        $chunks.Add([string[]]$commandNames[$i..$end])
-    }
+        $actualWorkers = [Math]::Min($ThrottleLimit, $commandNames.Count)
+        $chunkSize     = [Math]::Ceiling($commandNames.Count / $actualWorkers)
+        $chunks        = [System.Collections.Generic.List[string[]]]::new()
+        for ($i = 0; $i -lt $commandNames.Count; $i += $chunkSize) {
+            $end = [Math]::Min($i + $chunkSize - 1, $commandNames.Count - 1)
+            $chunks.Add([string[]]$commandNames[$i..$end])
+        }
 
-    Write-Information "Processing $total commands in $($chunks.Count) parallel batches (ThrottleLimit=$ThrottleLimit)..."
+        Write-Information "Processing $total commands in $($chunks.Count) parallel batches (ThrottleLimit=$ThrottleLimit)..."
 
-    $allResults = $chunks | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
+        $allResults = $chunks | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
         $chunkCmds = $_
 
         Import-Module dbatools -ErrorAction Stop
@@ -331,19 +331,19 @@ if ($helpXmlFiles.Count -gt 0) {
         }
     }
 
-    $batchNum = 0
-    foreach ($batch in $allResults) {
-        $batchNum++
+        $batchNum = 0
+        foreach ($batch in $allResults) {
+            $batchNum++
 
-        if ($batch.Results) {
-            foreach ($entry in $batch.Results) {
-                $index[$entry.name] = $entry
+            if ($batch.Results) {
+                foreach ($entry in $batch.Results) {
+                    $index[$entry.name] = $entry
+                }
             }
-        }
-        $failures += $batch.Failures
+            $failures += $batch.Failures
 
-        Write-Information "  Batch $batchNum/$($chunks.Count) complete - $($index.Count) commands indexed so far"
-    }
+            Write-Information "  Batch $batchNum/$($chunks.Count) complete - $($index.Count) commands indexed so far"
+        }
 
     } # end else ($commandNames.Count -gt 0)
 
