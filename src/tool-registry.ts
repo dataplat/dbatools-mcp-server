@@ -81,7 +81,7 @@ export function buildPowerShellScript(
 
   for (const [key, value] of Object.entries(args)) {
     // Validate parameter key (letters, digits only)
-    if (!/^[A-Za-z][A-Za-z0-9]*$/.test(key)) {
+    if (!PROPERTY_NAME_REGEX.test(key)) {
       throw new Error(`Invalid parameter name: ${key}`);
     }
     if (value === null || value === undefined) continue;
@@ -121,7 +121,7 @@ export function buildPowerShellScript(
     `Import-Module dbatools -ErrorAction Stop`,
     ...preambleLines,
     splatBlock,
-    ...(selectProperties
+    ...(selectProperties?.length
       ? [`$result = ${commandName} @params | Select-Object -First ${maxRows} -Property ${selectProperties.join(', ')}`]
       : [`$result = ${commandName} @params | Select-Object -First ${maxRows}`]),
     `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
