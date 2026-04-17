@@ -118,11 +118,10 @@ export function buildPowerShellScript(
     `Import-Module dbatools -ErrorAction Stop`,
     ...preambleLines,
     splatBlock,
-    `$result = ${commandName} @params | Select-Object -First ${maxRows}`,
-    `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
     ...(selectProperties && selectProperties.length > 0
-      ? [`$result = $result | Select-Object ${selectProperties.join(', ')}`]
-      : []),
+      ? [`$result = ${commandName} @params | Select-Object -First ${maxRows} -Property ${selectProperties.join(', ')}`]
+      : [`$result = ${commandName} @params | Select-Object -First ${maxRows}`]),
+    `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
     `$result | ConvertTo-Json -Depth 5 -Compress`,
   ].join("\n");
 }

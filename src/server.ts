@@ -229,7 +229,7 @@ server.tool(
         "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
       ),
     selectProperties: z
-      .array(z.string().max(100))
+      .array(z.string().trim().regex(/^[A-Za-z][A-Za-z0-9]*$/, 'Property names must be alphanumeric and start with a letter').max(100))
       .max(50)
       .optional()
       .describe(
