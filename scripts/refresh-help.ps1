@@ -110,10 +110,15 @@ if ($helpXmlFiles.Count -gt 0) {
     # Build a lookup of help entries keyed by command name
     $helpLookup = @{}
     foreach ($helpFile in $helpXmlFiles) {
-        [xml]$xml = Get-Content $helpFile.FullName -Raw
-        foreach ($cmdHelp in $xml.helpItems.command) {
-            $name = $cmdHelp.details.name.Trim()
-            if ($name) { $helpLookup[$name] = $cmdHelp }
+        try {
+            [xml]$xml = Get-Content $helpFile.FullName -Raw
+            foreach ($cmdHelp in $xml.helpItems.command) {
+                $name = $cmdHelp.details.name.Trim()
+                if ($name) { $helpLookup[$name] = $cmdHelp }
+            }
+        }
+        catch {
+            Write-Warning "Failed to parse MAML file $($helpFile.Name): $_"
         }
     }
     Write-Information "Parsed $($helpLookup.Count) help entries from MAML XML"
@@ -131,8 +136,9 @@ if ($helpXmlFiles.Count -gt 0) {
                             (@($p.description.para) | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.InnerText } } | Where-Object { $_ }) -join ' '
                         } else { '' }
 
-                        $aliasArr = if ($p.aliases -and $p.aliases.Trim() -ne '' -and $p.aliases -ne 'None') {
-                            @($p.aliases -split ',\s*' | Where-Object { $_ -ne '' })
+                        $aliasStr = if ($p.aliases) { [string]$p.aliases } else { '' }
+                        $aliasArr = if ($aliasStr.Trim() -ne '' -and $aliasStr -ne 'None') {
+                            @($aliasStr -split ',\s*' | Where-Object { $_ -ne '' })
                         } else { @() }
 
                         [ordered]@{
@@ -215,6 +221,9 @@ if ($helpXmlFiles.Count -gt 0) {
     Write-Information "No MAML XML help files found — falling back to Get-Help (slower)..."
 
     $commandNames  = @($commands.Name)
+    if ($commandNames.Count -eq 0) {
+        Write-Warning "No commands to index."
+    } else {
     $actualWorkers = [Math]::Min($ThrottleLimit, $commandNames.Count)
     $chunkSize     = [Math]::Ceiling($commandNames.Count / $actualWorkers)
     $chunks        = [System.Collections.Generic.List[string[]]]::new()
@@ -230,8 +239,8 @@ if ($helpXmlFiles.Count -gt 0) {
 
         Import-Module dbatools -ErrorAction Stop
 
-        $RoVerbs = @('Get','Test','Find','Measure','Select','Show','Watch','Compare','Search','Resolve')
-        $DVerbs  = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','Reset')
+        $RoVerbs = $using:ReadonlyVerbs
+        $DVerbs  = $using:DestructiveVerbs
 
         $results   = [System.Collections.Generic.List[object]]::new()
         $failCount = 0
@@ -319,23 +328,24 @@ if ($helpXmlFiles.Count -gt 0) {
         [PSCustomObject]@{
             Results  = $results.ToArray()
             Failures = $failCount
-        } | ConvertTo-Json -Depth 10 -Compress
+        }
     }
 
     $batchNum = 0
-    foreach ($batchJson in $allResults) {
-        $result = $batchJson | ConvertFrom-Json
+    foreach ($batch in $allResults) {
         $batchNum++
 
-        if ($result.Results) {
-            foreach ($entry in $result.Results) {
+        if ($batch.Results) {
+            foreach ($entry in $batch.Results) {
                 $index[$entry.name] = $entry
             }
         }
-        $failures += $result.Failures
+        $failures += $batch.Failures
 
         Write-Information "  Batch $batchNum/$($chunks.Count) complete - $($index.Count) commands indexed so far"
     }
+
+    } # end else ($commandNames.Count -gt 0)
 
     # Sort results by command name (parallel results arrive in batch order)
     $sortedIndex = [System.Collections.Specialized.OrderedDictionary]::new()
