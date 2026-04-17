@@ -56,11 +56,21 @@ function isSqlCredentialDescriptor(v: unknown): v is SqlCredentialDescriptor {
 export function buildPowerShellScript(
   commandName: string,
   args: Record<string, unknown>,
-  maxRows: number
+  maxRows: number,
+  selectProperties?: string[]
 ): string {
   // Validate command name against an allowlist pattern (letters, digits, hyphens only)
   if (!/^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$/.test(commandName)) {
     throw new Error(`Invalid command name: ${commandName}`);
+  }
+
+  // Validate selectProperties names (letters, digits only)
+  if (selectProperties) {
+    for (const prop of selectProperties) {
+      if (!/^[A-Za-z][A-Za-z0-9]*$/.test(prop)) {
+        throw new Error(`Invalid property name: ${prop}`);
+      }
+    }
   }
 
   const preambleLines: string[] = [];
@@ -110,6 +120,9 @@ export function buildPowerShellScript(
     splatBlock,
     `$result = ${commandName} @params | Select-Object -First ${maxRows}`,
     `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
+    ...(selectProperties && selectProperties.length > 0
+      ? [`$result = $result | Select-Object ${selectProperties.join(', ')}`]
+      : []),
     `$result | ConvertTo-Json -Depth 5 -Compress`,
   ].join("\n");
 }

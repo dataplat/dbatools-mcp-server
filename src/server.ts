@@ -228,8 +228,17 @@ server.tool(
       .describe(
         "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
       ),
+    selectProperties: z
+      .array(z.string().max(100))
+      .max(50)
+      .optional()
+      .describe(
+        "List of property names to select from the output (e.g. ['Name', 'Status', 'SizeMB']). " +
+        "Use this to reduce output size for commands that return complex objects like SMO database or login objects. " +
+        "When omitted, all properties are returned."
+      ),
   },
-  async ({ commandName, parameters, confirm }) => {
+  async ({ commandName, parameters, confirm, selectProperties }) => {
     let index;
     try {
       index = loadHelpIndex();
@@ -272,7 +281,8 @@ server.tool(
       script = buildPowerShellScript(
         commandName,
         parameters as Record<string, unknown>,
-        config.maxOutputRows
+        config.maxOutputRows,
+        selectProperties
       );
     } catch (e) {
       return {
