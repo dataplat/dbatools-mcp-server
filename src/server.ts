@@ -8,6 +8,7 @@ import {
   classifyCommand,
   buildPowerShellScript,
   buildToolDescription,
+  PROPERTY_NAME_REGEX,
 } from "./tool-registry.js";
 
 const config = getConfig();
@@ -229,7 +230,7 @@ server.tool(
         "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
       ),
     selectProperties: z
-      .array(z.string().trim().regex(/^[A-Za-z][A-Za-z0-9]*$/, 'Property names must be alphanumeric and start with a letter').max(100))
+      .array(z.string().trim().regex(PROPERTY_NAME_REGEX, 'Property names must be alphanumeric and start with a letter').max(100))
       .min(1, 'selectProperties must contain at least one property name')
       .max(50)
       .optional()

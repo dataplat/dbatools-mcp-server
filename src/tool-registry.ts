@@ -9,6 +9,9 @@ const DESTRUCTIVE_VERBS = new Set([
   "Remove", "Drop", "Delete", "Uninstall", "Revoke", "Disable", "Reset",
 ]);
 
+/** Shared regex for validating PowerShell property names (single source of truth). */
+export const PROPERTY_NAME_REGEX = /^[A-Za-z][A-Za-z0-9]*$/;
+
 /**
  * Classify a dbatools command into a risk tier based on its verb.
  * readonly  — safe to run without confirmation
@@ -67,7 +70,7 @@ export function buildPowerShellScript(
   // Validate selectProperties names (letters, digits only)
   if (selectProperties) {
     for (const prop of selectProperties) {
-      if (!/^[A-Za-z][A-Za-z0-9]*$/.test(prop)) {
+      if (!PROPERTY_NAME_REGEX.test(prop)) {
         throw new Error(`Invalid property name: ${prop}`);
       }
     }
