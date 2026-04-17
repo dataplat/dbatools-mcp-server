@@ -9,6 +9,9 @@ const DESTRUCTIVE_VERBS = new Set([
   "Remove", "Drop", "Delete", "Uninstall", "Revoke", "Disable", "Reset",
 ]);
 
+/** Shared regex for validating PowerShell property names (single source of truth). */
+export const PROPERTY_NAME_REGEX = /^[A-Za-z][A-Za-z0-9]*$/;
+
 /**
  * Classify a dbatools command into a risk tier based on its verb.
  * readonly  — safe to run without confirmation
@@ -56,11 +59,21 @@ function isSqlCredentialDescriptor(v: unknown): v is SqlCredentialDescriptor {
 export function buildPowerShellScript(
   commandName: string,
   args: Record<string, unknown>,
-  maxRows: number
+  maxRows: number,
+  selectProperties?: string[]
 ): string {
   // Validate command name against an allowlist pattern (letters, digits, hyphens only)
   if (!/^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$/.test(commandName)) {
     throw new Error(`Invalid command name: ${commandName}`);
+  }
+
+  // Validate selectProperties names (letters, digits only)
+  if (selectProperties) {
+    for (const prop of selectProperties) {
+      if (!PROPERTY_NAME_REGEX.test(prop)) {
+        throw new Error(`Invalid property name: ${prop}`);
+      }
+    }
   }
 
   const preambleLines: string[] = [];
@@ -68,7 +81,7 @@ export function buildPowerShellScript(
 
   for (const [key, value] of Object.entries(args)) {
     // Validate parameter key (letters, digits only)
-    if (!/^[A-Za-z][A-Za-z0-9]*$/.test(key)) {
+    if (!PROPERTY_NAME_REGEX.test(key)) {
       throw new Error(`Invalid parameter name: ${key}`);
     }
     if (value === null || value === undefined) continue;
@@ -108,7 +121,9 @@ export function buildPowerShellScript(
     `Import-Module dbatools -ErrorAction Stop`,
     ...preambleLines,
     splatBlock,
-    `$result = ${commandName} @params | Select-Object -First ${maxRows}`,
+    ...(selectProperties?.length
+      ? [`$result = ${commandName} @params | Select-Object -First ${maxRows} -Property ${selectProperties.join(', ')}`]
+      : [`$result = ${commandName} @params | Select-Object -First ${maxRows}`]),
     `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
     `$result | ConvertTo-Json -Depth 5 -Compress`,
   ].join("\n");
