@@ -81,13 +81,13 @@ Write-Information "Indexing $total commands..."
 # ---------------------------------------------------------------------------
 # Risk classification constants
 # ---------------------------------------------------------------------------
-$ReadonlyVerbs    = @('Get','Test','Find','Measure','Select','Show','Watch','Compare','Search','Resolve')
-$DestructiveVerbs = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','Reset')
+$ReadonlyVerbs    = @('Get','Test','Find','Measure','Select','Show','Watch','Compare','Resolve','Read','ConvertTo','Export','Format','Where')
+$DestructiveVerbs = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','Reset','Clear','Unregister','Restore','Stop','Invoke','Rename','Restart','Write')
 
 function Get-RiskLevel([string]$verb) {
     if ($ReadonlyVerbs    -contains $verb) { return 'readonly' }
     if ($DestructiveVerbs -contains $verb) { return 'destructive' }
-    return 'change'
+    return 'destructive'
 }
 
 # ---------------------------------------------------------------------------
@@ -386,8 +386,7 @@ if ($helpLookup.Count -gt 0) {
                 } else { '' }
 
                 $riskLevel = if ($RoVerbs -contains $cmd.Verb) { 'readonly' }
-                            elseif ($DVerbs -contains $cmd.Verb) { 'destructive' }
-                            else { 'change' }
+                            else { 'destructive' }
 
                 $results.Add([ordered]@{
                     name         = $cmd.Name
