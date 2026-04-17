@@ -214,6 +214,83 @@ if ($helpXmlFiles.Count -gt 0) {
             Write-Warning "Failed to process $($cmd.Name): $_"
         }
     }
+
+    # ------------------------------------------------------------------
+    # Fill in commands that had no MAML help entry via Get-Help
+    # ------------------------------------------------------------------
+    $missingHelp = @($index.Values | Where-Object {
+        -not $_.synopsis -and -not $_.description -and $_.parameters.Count -eq 0
+    })
+
+    if ($missingHelp.Count -gt 0) {
+        Write-Information "Filling $($missingHelp.Count) commands with no MAML entry via Get-Help..."
+        foreach ($entry in $missingHelp) {
+            try {
+                $help = Get-Help $entry.name -Full -ErrorAction SilentlyContinue
+                if (-not $help -or $help.Synopsis -like 'Get-Help*') { continue }
+
+                $params = @()
+                if ($help.parameters -and $help.parameters.parameter) {
+                    $params = @($help.parameters.parameter | ForEach-Object {
+                        $p = $_
+                        [ordered]@{
+                            name         = $p.name
+                            type         = if ($p.type) { $p.type.name } else { 'Object' }
+                            description  = ($p.description | ForEach-Object { $_.Text }) -join ' '
+                            required     = ($p.required -eq 'true')
+                            pipelineInput = ($p.pipelineInput -and $p.pipelineInput -ne 'false')
+                            defaultValue = if ($p.defaultValue) { $p.defaultValue } else { $null }
+                            aliases      = if ($p.aliases -and $p.aliases -ne 'None') {
+                                @($p.aliases -split ',\s*')
+                            } else { @() }
+                        }
+                    })
+                }
+
+                $examples = @()
+                if ($help.examples -and $help.examples.example) {
+                    $examples = @($help.examples.example | ForEach-Object {
+                        [ordered]@{
+                            title   = ($_.title -replace '-+', '').Trim()
+                            code    = if ($_.code) { $_.code.Trim() } else { '' }
+                            remarks = ($_.remarks | ForEach-Object { $_.Text }) -join ' '
+                        }
+                    })
+                }
+
+                $links = @()
+                if ($help.relatedLinks -and $help.relatedLinks.navigationLink) {
+                    $links = @($help.relatedLinks.navigationLink | ForEach-Object {
+                        [ordered]@{
+                            text = if ($_.linkText) { $_.linkText } else { '' }
+                            uri  = if ($_.uri) { $_.uri } else { '' }
+                        }
+                    })
+                }
+
+                $synopsis    = if ($help.Synopsis) { $help.Synopsis.Trim() } else { '' }
+                $description = ($help.description | ForEach-Object { $_.Text }) -join ' '
+
+                $index[$entry.name] = [ordered]@{
+                    name         = $entry.name
+                    verb         = $entry.verb
+                    noun         = $entry.noun
+                    synopsis     = $synopsis
+                    description  = $description.Trim()
+                    parameters   = $params
+                    examples     = $examples
+                    relatedLinks = $links
+                    tags         = @()
+                    riskLevel    = $entry.riskLevel
+                }
+
+                Write-Information "  Filled: $($entry.name)"
+            }
+            catch {
+                Write-Warning "  Failed to fill $($entry.name) via Get-Help: $_"
+            }
+        }
+    }
 } else {
     # ------------------------------------------------------------------
     # SLOW PATH: Get-Help with parallel processing (fallback)
