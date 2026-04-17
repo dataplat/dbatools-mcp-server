@@ -230,6 +230,7 @@ server.tool(
       ),
     selectProperties: z
       .array(z.string().trim().regex(/^[A-Za-z][A-Za-z0-9]*$/, 'Property names must be alphanumeric and start with a letter').max(100))
+      .min(1, 'selectProperties must contain at least one property name')
       .max(50)
       .optional()
       .describe(

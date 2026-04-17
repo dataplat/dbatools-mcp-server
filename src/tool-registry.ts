@@ -118,7 +118,7 @@ export function buildPowerShellScript(
     `Import-Module dbatools -ErrorAction Stop`,
     ...preambleLines,
     splatBlock,
-    ...(selectProperties && selectProperties.length > 0
+    ...(selectProperties
       ? [`$result = ${commandName} @params | Select-Object -First ${maxRows} -Property ${selectProperties.join(', ')}`]
       : [`$result = ${commandName} @params | Select-Object -First ${maxRows}`]),
     `if ($null -eq $result) { Write-Output '[]'; exit 0 }`,
