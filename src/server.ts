@@ -8,6 +8,7 @@ import {
   classifyCommand,
   buildPowerShellScript,
   buildToolDescription,
+  PROPERTY_NAME_REGEX,
 } from "./tool-registry.js";
 
 const config = getConfig();
@@ -33,7 +34,7 @@ async function getVersionState(): Promise<VersionMismatchResult> {
 
 const server = new McpServer({
   name: "dbatools-mcp-server",
-  version: "0.4.0",
+  version: "0.5.0",
 });
 
 // ---------------------------------------------------------------------------
@@ -228,8 +229,18 @@ server.tool(
       .describe(
         "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
       ),
+    selectProperties: z
+      .array(z.string().trim().regex(PROPERTY_NAME_REGEX, 'Property names must be alphanumeric and start with a letter').max(100))
+      .min(1, 'selectProperties must contain at least one property name')
+      .max(50)
+      .optional()
+      .describe(
+        "List of property names to select from the output (e.g. ['Name', 'Status', 'SizeMB']). " +
+        "Use this to reduce output size for commands that return complex objects like SMO database or login objects. " +
+        "When omitted, all properties are returned."
+      ),
   },
-  async ({ commandName, parameters, confirm }) => {
+  async ({ commandName, parameters, confirm, selectProperties }) => {
     let index;
     try {
       index = loadHelpIndex();
@@ -272,7 +283,8 @@ server.tool(
       script = buildPowerShellScript(
         commandName,
         parameters as Record<string, unknown>,
-        config.maxOutputRows
+        config.maxOutputRows,
+        selectProperties
       );
     } catch (e) {
       return {
