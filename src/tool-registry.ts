@@ -2,11 +2,12 @@ import type { DbatoolsCommandHelp } from "./types.js";
 
 const READONLY_VERBS = new Set([
   "Get", "Test", "Find", "Measure", "Select", "Show",
-  "Watch", "Compare", "Search", "Resolve",
+  "Watch", "Compare", "Search", "Resolve", "Read", "ConvertTo", "Export", "Format", "Where",
 ]);
 
 const DESTRUCTIVE_VERBS = new Set([
   "Remove", "Drop", "Delete", "Uninstall", "Revoke", "Disable", "Reset",
+  "Clear", "Unregister", "Restore", "Stop", "Invoke", "Rename", "Restart", "Write",
 ]);
 
 /** Shared regex for validating PowerShell property names (single source of truth). */

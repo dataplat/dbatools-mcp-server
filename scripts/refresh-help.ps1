@@ -81,8 +81,8 @@ Write-Information "Indexing $total commands..."
 # ---------------------------------------------------------------------------
 # Risk classification constants
 # ---------------------------------------------------------------------------
-$ReadonlyVerbs    = @('Get','Test','Find','Measure','Select','Show','Watch','Compare','Search','Resolve')
-$DestructiveVerbs = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','Reset')
+$ReadonlyVerbs    = @('Get','Test','Find','Measure','Select','Show','Watch','Compare','Search','Resolve','Read','ConvertTo','Export','Format','Where')
+$DestructiveVerbs = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','Reset','Clear','Unregister','Restore','Stop','Invoke','Rename','Restart','Write')
 
 function Get-RiskLevel([string]$verb) {
     if ($ReadonlyVerbs    -contains $verb) { return 'readonly' }
