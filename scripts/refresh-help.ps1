@@ -87,7 +87,7 @@ $DestructiveVerbs = @('Remove','Drop','Delete','Uninstall','Revoke','Disable','R
 function Get-RiskLevel([string]$verb) {
     if ($ReadonlyVerbs    -contains $verb) { return 'readonly' }
     if ($DestructiveVerbs -contains $verb) { return 'destructive' }
-    return 'destructive'
+    return 'change'
 }
 
 # ---------------------------------------------------------------------------
@@ -386,7 +386,8 @@ if ($helpLookup.Count -gt 0) {
                 } else { '' }
 
                 $riskLevel = if ($RoVerbs -contains $cmd.Verb) { 'readonly' }
-                            else { 'destructive' }
+                            elseif ($DVerbs -contains $cmd.Verb) { 'destructive' }
+                            else { 'change' }
 
                 $results.Add([ordered]@{
                     name         = $cmd.Name
