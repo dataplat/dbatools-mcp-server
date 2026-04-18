@@ -33,7 +33,7 @@ async function getVersionState(): Promise<VersionMismatchResult> {
 
 const server = new McpServer({
   name: "dbatools-mcp-server",
-  version: "0.4.0",
+  version: "0.5.0",
 });
 
 // ---------------------------------------------------------------------------
