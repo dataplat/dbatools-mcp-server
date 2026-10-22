@@ -28,6 +28,11 @@ export interface DbatoolsCommandHelp {
   relatedLinks: string[];
   tags: string[];
   riskLevel: "readonly" | "change" | "destructive";
+  /**
+   * PowerShell command type as reported by Get-Command (Function, Cmdlet, Alias, ...).
+   * Optional for backward compatibility with help indexes generated before this field existed.
+   */
+  commandType?: string;
 }
 
 /** The full dbatools-help.json manifest written by refresh-help.ps1 */
@@ -57,4 +62,10 @@ export interface ServerConfig {
   maxOutputRows: number;
   /** Seconds before the PowerShell child process is killed */
   commandTimeout: number;
+  /**
+   * When true, invoke_dbatools_command reuses a single long-lived PowerShell
+   * process (with dbatools pre-imported) instead of spawning a fresh process
+   * per call. Falls back automatically to a one-shot process on startup failure.
+   */
+  usePersistentSession: boolean;
 }

@@ -1,11 +1,12 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
 import { loadHelpIndex, loadHelpManifest, searchCommands } from "./help-indexer.js";
-import { runPowerShell, checkDbatools, getConfig, checkVersionMismatch, type VersionMismatchResult } from "./powershell.js";
+import { checkDbatools, getConfig, checkVersionMismatch, type VersionMismatchResult } from "./powershell.js";
+import { persistentSession, runPowerShellPersistent } from "./powershell-session.js";
 import {
-  classifyCommand,
+  annotationsForRisk,
   buildPowerShellScript,
   buildToolDescription,
   PROPERTY_NAME_REGEX,
@@ -40,36 +41,42 @@ const server = new McpServer({
 // ---------------------------------------------------------------------------
 // Tool: list_dbatools_commands
 // ---------------------------------------------------------------------------
-server.tool(
+server.registerTool(
   "list_dbatools_commands",
-  "Search and list dbatools commands. Filter by verb, noun, keyword, or risk level.",
   {
-    verb: z
-      .string()
-      .max(50)
-      .optional()
-      .describe("PowerShell verb (e.g. Get, Set, New, Remove, Test)"),
-    noun: z
-      .string()
-      .max(100)
-      .optional()
-      .describe("Noun fragment to match (e.g. Database, Login, AgentJob)"),
-    keyword: z
-      .string()
-      .max(200)
-      .optional()
-      .describe("Keyword to search in name, synopsis, and description"),
-    riskLevel: z
-      .enum(["readonly", "change", "destructive"])
-      .optional()
-      .describe("Filter by risk tier"),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .default(50)
-      .describe("Maximum number of results (default 50, max 200)"),
+    description: "Search and list dbatools commands. Filter by verb, noun, keyword, or risk level.",
+    annotations: annotationsForRisk("readonly", {
+      title: "List dbatools Commands",
+      openWorld: false,
+    }),
+    inputSchema: {
+      verb: z
+        .string()
+        .max(50)
+        .optional()
+        .describe("PowerShell verb (e.g. Get, Set, New, Remove, Test)"),
+      noun: z
+        .string()
+        .max(100)
+        .optional()
+        .describe("Noun fragment to match (e.g. Database, Login, AgentJob)"),
+      keyword: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("Keyword to search in name, synopsis, and description"),
+      riskLevel: z
+        .enum(["readonly", "change", "destructive"])
+        .optional()
+        .describe("Filter by risk tier"),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .default(50)
+        .describe("Maximum number of results (default 50, max 200)"),
+    },
   },
   async ({ verb, noun, keyword, riskLevel, limit }) => {
     const vs = await getVersionState();
@@ -106,14 +113,21 @@ server.tool(
 // ---------------------------------------------------------------------------
 // Tool: get_dbatools_command_help
 // ---------------------------------------------------------------------------
-server.tool(
+server.registerTool(
   "get_dbatools_command_help",
-  "Get the full normalized help for a specific dbatools command, including parameters and examples sourced from comment-based help.",
   {
-    commandName: z
-      .string()
-      .max(100)
-      .describe("Exact command name, e.g. Get-DbaDatabase"),
+    description:
+      "Get the full normalized help for a specific dbatools command, including parameters and examples sourced from comment-based help.",
+    annotations: annotationsForRisk("readonly", {
+      title: "Get dbatools Command Help",
+      openWorld: false,
+    }),
+    inputSchema: {
+      commandName: z
+        .string()
+        .max(100)
+        .describe("Exact command name, e.g. Get-DbaDatabase"),
+    },
   },
   async ({ commandName }) => {
     const vs = await getVersionState();
@@ -207,38 +221,47 @@ server.tool(
 // ---------------------------------------------------------------------------
 // Tool: invoke_dbatools_command
 // ---------------------------------------------------------------------------
-server.tool(
+server.registerTool(
   "invoke_dbatools_command",
-  "Execute a dbatools command via PowerShell and return structured JSON output.\n\nSAFETY: For any destructive or change command (Remove, Drop, Disable, Reset, etc.), always explain the consequences to the user and ask for explicit confirmation before running. Only proceed with confirm:true if the user has clearly confirmed their intent. Respect DBATOOLS_SAFE_MODE: never bypass safety checks. For any command that modifies or deletes data, double-check with the user before proceeding. Show the exact command and output for transparency. Non-readonly commands require confirm:true when safe mode is enabled.",
   {
-    commandName: z
-      .string()
-      .max(100)
-      .describe("Exact dbatools command name to execute, e.g. Get-DbaDatabase"),
-    parameters: z
-      .record(z.unknown())
-      .default({})
-      .describe(
-        "Key-value map of parameters. Strings, numbers, and booleans map directly to PowerShell parameters. " +
-        "For SQL authentication pass SqlCredential as an object: { \"username\": \"sa\", \"password\": \"secret\" }. " +
-        "Example: { \"SqlInstance\": \"localhost,2022\", \"SqlCredential\": { \"username\": \"sa\", \"password\": \"P@ssw0rd\" } }"
-      ),
-    confirm: z
-      .boolean()
-      .default(false)
-      .describe(
-        "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
-      ),
-    selectProperties: z
-      .array(z.string().trim().regex(PROPERTY_NAME_REGEX, 'Property names must be alphanumeric and start with a letter').max(100))
-      .min(1, 'selectProperties must contain at least one property name')
-      .max(50)
-      .optional()
-      .describe(
-        "List of property names to select from the output (e.g. ['Name', 'Status', 'SizeMB']). " +
-        "Use this to reduce output size for commands that return complex objects like SMO database or login objects. " +
-        "When omitted, all properties are returned."
-      ),
+    description:
+      "Execute a dbatools command via PowerShell and return structured JSON output.\n\nSAFETY: For any destructive or change command (Remove, Drop, Disable, Reset, etc.), always explain the consequences to the user and ask for explicit confirmation before running. Only proceed with confirm:true if the user has clearly confirmed their intent. Respect DBATOOLS_SAFE_MODE: never bypass safety checks. For any command that modifies or deletes data, double-check with the user before proceeding. Show the exact command and output for transparency. Non-readonly commands require confirm:true when safe mode is enabled.",
+    // This is a generic dispatcher that can run any dbatools command, so the
+    // annotation must conservatively reflect the worst case — it cannot be
+    // narrowed per-call since MCP tool annotations are static. Individual
+    // commands' actual risk level is still enforced at runtime via the safe
+    // mode gate below.
+    annotations: annotationsForRisk("destructive", { title: "Invoke dbatools Command" }),
+    inputSchema: {
+      commandName: z
+        .string()
+        .max(100)
+        .describe("Exact dbatools command name to execute, e.g. Get-DbaDatabase"),
+      parameters: z
+        .record(z.unknown())
+        .default({})
+        .describe(
+          "Key-value map of parameters. Strings, numbers, and booleans map directly to PowerShell parameters. " +
+          "For SQL authentication pass SqlCredential as an object: { \"username\": \"sa\", \"password\": \"secret\" }. " +
+          "Example: { \"SqlInstance\": \"localhost,2022\", \"SqlCredential\": { \"username\": \"sa\", \"password\": \"P@ssw0rd\" } }"
+        ),
+      confirm: z
+        .boolean()
+        .default(false)
+        .describe(
+          "Set to true to allow execution of change/destructive commands (required when safeMode is on)"
+        ),
+      selectProperties: z
+        .array(z.string().trim().regex(PROPERTY_NAME_REGEX, 'Property names must be alphanumeric and start with a letter').max(100))
+        .min(1, 'selectProperties must contain at least one property name')
+        .max(50)
+        .optional()
+        .describe(
+          "List of property names to select from the output (e.g. ['Name', 'Status', 'SizeMB']). " +
+          "Use this to reduce output size for commands that return complex objects like SMO database or login objects. " +
+          "When omitted, all properties are returned."
+        ),
+    },
   },
   async ({ commandName, parameters, confirm, selectProperties }) => {
     let index;
@@ -284,7 +307,8 @@ server.tool(
         commandName,
         parameters as Record<string, unknown>,
         config.maxOutputRows,
-        selectProperties
+        selectProperties,
+        { skipImport: config.usePersistentSession }
       );
     } catch (e) {
       return {
@@ -295,7 +319,7 @@ server.tool(
 
     let result;
     try {
-      result = await runPowerShell(script, config);
+      result = await runPowerShellPersistent(script, config);
     } catch (e) {
       return {
         content: [{ type: "text", text: `PowerShell execution failed: ${String(e)}` }],
@@ -354,10 +378,13 @@ server.tool(
 // ---------------------------------------------------------------------------
 // Tool: check_dbatools_environment
 // ---------------------------------------------------------------------------
-server.tool(
+server.registerTool(
   "check_dbatools_environment",
-  "Verify that PowerShell and the dbatools module are installed and report the help-index status.",
-  {},
+  {
+    description: "Verify that PowerShell and the dbatools module are installed and report the help-index status.",
+    annotations: annotationsForRisk("readonly", { title: "Check dbatools Environment" }),
+    inputSchema: {},
+  },
   async () => {
     const check = await checkDbatools(config);
 
@@ -400,7 +427,77 @@ server.tool(
             `Safe mode:       ${config.safeMode ? "ON (non-readonly commands require confirm:true)" : "OFF"}`,
             `Max output rows: ${config.maxOutputRows}`,
             `Timeout:         ${config.commandTimeout}s`,
+            `Persistent session: ${
+              !config.usePersistentSession
+                ? "disabled (DBATOOLS_PERSISTENT_SESSION=false)"
+                : persistentSession.isActive()
+                  ? "active (dbatools pre-imported)"
+                  : "enabled, not started yet (starts on first invoke_dbatools_command call)"
+            }`,
           ].filter(Boolean).join("\n"),
+        },
+      ],
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Resource: dbatools://command/{name}
+// Exposes each command's full normalized help as a browsable/structured MCP
+// resource (as distinct from the list_dbatools_commands / get_dbatools_command_help
+// tools, which return human-readable text aimed at being read in a chat reply).
+// ---------------------------------------------------------------------------
+server.registerResource(
+  "dbatools_command",
+  new ResourceTemplate("dbatools://command/{name}", {
+    list: async () => {
+      let index;
+      try {
+        index = loadHelpIndex();
+      } catch {
+        return { resources: [] };
+      }
+      const resources = Object.values(index)
+        // Aliases just forward to another command's help, so they'd only add
+        // near-duplicate entries to the browsable list; skip them.
+        .filter((c) => c.commandType !== "Alias")
+        .map((c) => ({
+          uri: `dbatools://command/${c.name}`,
+          name: c.name,
+          title: c.name,
+          description: c.synopsis || undefined,
+          mimeType: "application/json",
+        }));
+      return { resources };
+    },
+  }),
+  {
+    title: "dbatools Command Reference",
+    description:
+      "Full normalized help (synopsis, parameters, examples, risk level) for one dbatools command, as JSON.",
+    mimeType: "application/json",
+  },
+  async (uri, { name }) => {
+    const commandName = Array.isArray(name) ? name[0] : name;
+    let index;
+    try {
+      index = loadHelpIndex();
+    } catch (e) {
+      throw new Error(`Help index unavailable: ${String(e)}`);
+    }
+    const help = index[commandName ?? ""];
+    if (!help) {
+      throw new Error(
+        `Command '${commandName}' not found in the help index. ` +
+          `Use list_dbatools_commands or browse dbatools://command/ to discover available commands.`
+      );
+    }
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(help, null, 2),
         },
       ],
     };
@@ -412,3 +509,18 @@ server.tool(
 // ---------------------------------------------------------------------------
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+// Ensure the persistent PowerShell process (if started) doesn't linger after
+// the MCP server shuts down.
+function shutdown(): void {
+  persistentSession.shutdown();
+}
+process.on("exit", shutdown);
+process.on("SIGINT", () => {
+  shutdown();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  shutdown();
+  process.exit(0);
+});
