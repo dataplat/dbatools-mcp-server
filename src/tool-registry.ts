@@ -1,4 +1,5 @@
 import type { DbatoolsCommandHelp } from "./types.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
 const READONLY_VERBS = new Set([
   "Get", "Test", "Find", "Measure", "Select", "Show",
@@ -26,6 +27,46 @@ export function classifyCommand(
   if (READONLY_VERBS.has(verb)) return "readonly";
   if (DESTRUCTIVE_VERBS.has(verb)) return "destructive";
   return "change";
+}
+
+/**
+ * Map a risk tier (or the generic dispatcher's worst-case tier) onto MCP
+ * `ToolAnnotations` hints. `openWorldHint` is true by default because every
+ * dbatools call reaches out to an external SQL Server instance; pass
+ * `openWorld: false` for tools that never touch a live instance (e.g. the
+ * static help/listing tools, which only read the local help index).
+ */
+export function annotationsForRisk(
+  tier: "readonly" | "change" | "destructive",
+  opts: { title: string; openWorld?: boolean }
+): ToolAnnotations {
+  const openWorldHint = opts.openWorld ?? true;
+  switch (tier) {
+    case "readonly":
+      return {
+        title: opts.title,
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint,
+      };
+    case "change":
+      return {
+        title: opts.title,
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint,
+      };
+    case "destructive":
+      return {
+        title: opts.title,
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint,
+      };
+  }
 }
 
 /**
@@ -61,7 +102,8 @@ export function buildPowerShellScript(
   commandName: string,
   args: Record<string, unknown>,
   maxRows: number,
-  selectProperties?: string[]
+  selectProperties?: string[],
+  opts?: { skipImport?: boolean }
 ): string {
   // Validate command name against an allowlist pattern (letters, digits, hyphens only)
   if (!/^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$/.test(commandName)) {
@@ -119,7 +161,7 @@ export function buildPowerShellScript(
   return [
     `Set-StrictMode -Off`,
     `$ErrorActionPreference = 'Stop'`,
-    `Import-Module dbatools -ErrorAction Stop`,
+    ...(opts?.skipImport ? [] : [`Import-Module dbatools -ErrorAction Stop`]),
     ...preambleLines,
     splatBlock,
     ...(selectProperties?.length

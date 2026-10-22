@@ -15,6 +15,9 @@ Exposes dbatools commands as MCP tools so AI assistants (GitHub Copilot, Claude,
 - **`get_dbatools_command_help`** — full normalized help (synopsis, parameters, examples) from `Get-Help -Full`
 - **`invoke_dbatools_command`** — execute any dbatools command with safe parameter validation, risk gating, and structured JSON output
 - **`check_dbatools_environment`** — verify PowerShell + dbatools installation, index freshness, and version alignment
+- **Tool annotations** — each tool declares `readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint` so MCP clients (e.g. VS Code) can surface risk in the UI before a tool is even called
+- **Resources** — browse `dbatools://command/{name}` to read any command's full normalized help as structured JSON, independent of the chat-oriented tool responses
+- **Persistent PowerShell session** — `invoke_dbatools_command` reuses one long-lived `pwsh` process with dbatools pre-imported instead of spawning (and re-importing dbatools into) a fresh process on every call
 - **Version mismatch detection** — warns when installed dbatools version differs from the indexed version
 - **Safe mode** — non-readonly commands require explicit `confirm: true` to execute
 - **SQL Authentication support** — pass `SqlCredential: { username, password }` for SQL auth instances
@@ -88,6 +91,7 @@ All settings are controlled via environment variables (set in `.vscode/mcp.json`
 | `DBATOOLS_SAFE_MODE` | `true` | When `true`, non-readonly commands require `confirm: true` |
 | `MAX_OUTPUT_ROWS` | `100` | Maximum rows returned per command execution |
 | `COMMAND_TIMEOUT_SECONDS` | `60` | Seconds before PowerShell process is killed |
+| `DBATOOLS_PERSISTENT_SESSION` | `true` | When `true`, `invoke_dbatools_command` reuses one long-lived PowerShell process (dbatools pre-imported) instead of spawning a new process per call. Set to `false` to force a fresh process per call. |
 
 ---
 
@@ -115,6 +119,27 @@ Commands are automatically classified by verb:
 | `change` | Set, New, Add, Copy, Enable, … | Requires `confirm: true` in safe mode |
 | `destructive` | Remove, Drop, Disable, Reset, … | Requires `confirm: true` in safe mode |
 
+Each risk tier maps to standard MCP [tool annotations](https://modelcontextprotocol.io/specification/server/tools#annotations) (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), so compatible clients can surface risk in their UI before a tool is even invoked. `invoke_dbatools_command` is a generic dispatcher that can run any command, so its annotation conservatively reflects the worst case (`destructiveHint: true`) — the actual per-command risk is still enforced at runtime by the safe-mode gate.
+
+---
+
+## Resources
+
+Besides the four tools, the server exposes every indexed command as an MCP resource at `dbatools://command/{name}` (e.g. `dbatools://command/Get-DbaDatabase`), returning the same normalized help record as structured JSON — useful for clients that browse/ground on resources rather than calling a tool. The browsable resource list excludes PowerShell aliases (e.g. `Attach-DbaDatabase`, an alias for `Mount-DbaDatabase`) since they just forward to another command's help.
+
+---
+
+## Persistent PowerShell Session
+
+By default, `invoke_dbatools_command` reuses a single long-lived `pwsh` process with dbatools pre-imported, instead of spawning a fresh process (and re-importing dbatools) on every call. This removes the ~1-2s+ process-startup and module-import cost from every invocation after the first.
+
+A couple of things to be aware of:
+
+- **Crash/timeout recovery**: if a command times out or the session process crashes, it is killed and discarded; the next call transparently starts a fresh session (paying the import cost once more). The call that triggered the failure is not automatically retried.
+- **Cross-call state**: dbatools caches some state (e.g. SMO connections via `Connect-DbaInstance`) within a PowerShell session. With a persistent session, that caching is now visible across tool calls within one MCP server run, where previously every call was fully isolated. Each individual script still runs in its own scope, so plain variables never leak between calls — only dbatools' own internal caching behavior is affected.
+
+Set `DBATOOLS_PERSISTENT_SESSION=false` to disable this and go back to one fresh process per call.
+
 ---
 
 ## SQL Authentication
@@ -135,17 +160,18 @@ For SQL-auth-only instances (e.g. Docker), pass credentials via the `SqlCredenti
 ```
 dbatools-mcp-server/
 ├── src/
-│   ├── server.ts          # MCP server entry point, tool definitions
-│   ├── powershell.ts      # PowerShell process runner, health checks, version detection
-│   ├── help-indexer.ts    # Help manifest loader and command search
-│   ├── tool-registry.ts   # Risk classification, safe argument builder
-│   └── types.ts           # Shared TypeScript interfaces
+│   ├── server.ts              # MCP server entry point, tool/resource definitions
+│   ├── powershell.ts           # One-shot PowerShell process runner, health checks, version detection
+│   ├── powershell-session.ts   # Persistent PowerShell session (long-lived process, dbatools pre-imported)
+│   ├── help-indexer.ts         # Help manifest loader and command search
+│   ├── tool-registry.ts        # Risk classification, tool annotations, safe argument builder
+│   └── types.ts                # Shared TypeScript interfaces
 ├── scripts/
-│   └── refresh-help.ps1   # Generates generated/dbatools-help.json
-├── generated/             # Help index (gitignored, generated locally)
+│   └── refresh-help.ps1       # Generates generated/dbatools-help.json
+├── generated/                 # Help index (gitignored, generated locally)
 ├── .vscode/
-│   └── mcp.json           # VS Code MCP local server registration
-└── dist/                  # Compiled output (gitignored)
+│   └── mcp.json               # VS Code MCP local server registration
+└── dist/                      # Compiled output (gitignored)
 ```
 
 ---

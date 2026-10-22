@@ -31,6 +31,7 @@ export function getConfig(): ServerConfig {
     safeMode: process.env["DBATOOLS_SAFE_MODE"] !== "false",
     maxOutputRows: parseIntEnv("MAX_OUTPUT_ROWS", 100, 1, 10_000),
     commandTimeout: parseIntEnv("COMMAND_TIMEOUT_SECONDS", 60, 5, 3600),
+    usePersistentSession: process.env["DBATOOLS_PERSISTENT_SESSION"] !== "false",
   };
 }
 

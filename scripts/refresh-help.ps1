@@ -205,6 +205,7 @@ if ($helpLookup.Count -gt 0) {
                 name         = $cmd.Name
                 verb         = $cmd.Verb
                 noun         = $cmd.Noun
+                commandType  = $cmd.CommandType.ToString()
                 synopsis     = $synopsis.Trim()
                 description  = $description.Trim()
                 parameters   = $params
@@ -279,6 +280,7 @@ if ($helpLookup.Count -gt 0) {
                     name         = $entry.name
                     verb         = $entry.verb
                     noun         = $entry.noun
+                    commandType  = $entry.commandType
                     synopsis     = $synopsis
                     description  = $description.Trim()
                     parameters   = $params
@@ -393,6 +395,7 @@ if ($helpLookup.Count -gt 0) {
                     name         = $cmd.Name
                     verb         = $cmd.Verb
                     noun         = $cmd.Noun
+                    commandType  = $cmd.CommandType.ToString()
                     synopsis     = $synopsis
                     description  = $description.Trim()
                     parameters   = $params.ToArray()
